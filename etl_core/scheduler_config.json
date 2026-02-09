@@ -1,0 +1,24 @@
+{
+    "pipelines": [
+        {
+            "name": "FDS",
+            "module": "etl_core.pipelines.fds",
+            "class": "FdsPipeline",
+            "enabled": true,
+            "interval_seconds": 60,
+            "batch_size": 2000,
+            "workers": 20,
+            "checkpoint_file": "etl_core/checkpoints/fds.json"
+        },
+        {
+            "name": "SPR",
+            "module": "etl_core.pipelines.spr",
+            "class": "SprPipeline",
+            "enabled": true,
+            "interval_seconds": 60,
+            "batch_size": 2000,
+            "workers": 20,
+            "checkpoint_file": "etl_core/checkpoints/spr.json"
+        }
+    ]
+}

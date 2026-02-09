@@ -1,0 +1,46 @@
+数据库
+1、数据库：  DB_CONFIG = {
+        'host': '10.18.120.240',
+        'port': 35432,
+        'database': 'equipment_mechanism',
+        'user': 'postgres',
+        'password': '6edef2d746f2274cab951a452d5fc13d',
+        'driver': 'pg8000'  # 使用 pg8000 驱动
+    }
+
+
+工艺一 fds
+2、数据源 origin下面的表
+   视图：bs_fds_v_fds_curves  也就是origin下面表的组合
+   
+
+
+3、输出到biz下面的表
+   表：result
+   表：step
+   表：alarm
+   表：curve
+   表：extension
+
+4、理解数据库和字段含义，输出到 @"设备信息模型设计.md" 中，先以autoindex=251067 为例子去进行
+
+5、曲线的处理请参考@"parse_db_curves_sqlalchemy.py"
+
+
+工艺二、spr
+
+2、数据源 origin下面的表
+   bs_spr_detail 
+   bs_spr_graph
+   
+
+
+3、输出到biz下面的表
+   表：result
+   表：step
+   表：alarm
+   表：curve
+   表：extension
+
+4、理解数据库和字段含义，输出到 @"设备信息模型设计.md" 中，先以id=583435 为例子去进行
+
