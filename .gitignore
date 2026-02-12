@@ -23,5 +23,4 @@ yarn-error.log*
 # Mac
 .DS_Store
 
-# ETL Checkpoints
-etl_core/checkpoints/*.json
+
