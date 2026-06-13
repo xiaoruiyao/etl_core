@@ -67,6 +67,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  alarms: {
+    type: Array,
+    default: () => []
+  },
   height: {
     type: String,
     default: '400px'

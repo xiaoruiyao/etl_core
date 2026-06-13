@@ -256,7 +256,7 @@ onMounted(async () => {
   
   try {
     const data = await getResultCurves(resultId)
-    curves.value = data || []
+    curves.value = data.items || []
   } catch (e) {
     console.error('Failed to load curves:', e)
   }

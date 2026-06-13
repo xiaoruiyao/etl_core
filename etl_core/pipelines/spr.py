@@ -289,5 +289,5 @@ class SprPipeline(BaseEtlPipeline):
             return True
 
         except Exception as e:
-            print(f"[{self.name}] ❌ Error processing {detail_id}: {e}")
+            print(f"[{self.name}] Error processing {detail_id}: {e}")
             return False

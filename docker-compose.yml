@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # ── 后端 API ──────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fds_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/stats')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── ETL 调度器 ────────────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fds_scheduler
+    restart: unless-stopped
+    command: python etl_core/scheduler.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── 前端（nginx + 构建产物）─────────────────────────
+  frontend:
+    build:
+      context: ./biz-dashboard
+      dockerfile: Dockerfile
+    container_name: fds_frontend
+    restart: unless-stopped
+    ports:
+      - "8050:80"
+    depends_on:
+      - api

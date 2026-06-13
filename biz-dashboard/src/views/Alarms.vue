@@ -57,8 +57,10 @@
             <div v-if="alarms.length === 0" class="empty-state">
               暂无报警记录
             </div>
-            
-            <div class="pagination">
+          </AppCard>
+        </div>
+
+        <div class="pagination-bar">
               <AppButton 
                 variant="secondary" 
                 size="sm" 
@@ -76,8 +78,6 @@
               >
                 下一页
               </AppButton>
-            </div>
-          </AppCard>
         </div>
       </div>
     </div>
@@ -253,13 +253,14 @@ onMounted(loadAlarms)
   color: var(--text-secondary);
 }
 
-.pagination {
+.pagination-bar {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
   padding: var(--space-4);
   border-top: 1px solid var(--border-color);
+  background: var(--bg-panel);
 }
 
 .page-info {

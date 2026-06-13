@@ -2,8 +2,15 @@
   <aside class="app-sidebar">
     <div class="sidebar-header">
       <div class="logo">
-        <span class="logo-icon">⚙️</span>
-        <span class="logo-text">BIZ<span class="text-gradient">Dashboard</span></span>
+        <svg class="logo-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="20" height="20" rx="3" fill="#00f3ff" opacity="0.9"/>
+          <rect x="26" y="2" width="36" height="9" rx="3" fill="#00f3ff" opacity="0.4"/>
+          <rect x="26" y="14" width="36" height="8" rx="3" fill="#00f3ff" opacity="0.65"/>
+          <rect x="2" y="26" width="14" height="36" rx="3" fill="#00f3ff" opacity="0.5"/>
+          <rect x="20" y="26" width="22" height="36" rx="3" fill="#00f3ff" opacity="0.75"/>
+          <rect x="46" y="26" width="16" height="36" rx="3" fill="#00f3ff" opacity="0.95"/>
+        </svg>
+        <span class="logo-text"><span class="text-gradient">Dashboard</span></span>
       </div>
     </div>
     
@@ -76,8 +83,10 @@ const isActive = (path) => {
 }
 
 .logo-icon {
-  font-size: 24px;
-  filter: drop-shadow(0 0 5px var(--color-primary));
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 0 6px var(--color-primary));
+  flex-shrink: 0;
 }
 
 .logo-text {

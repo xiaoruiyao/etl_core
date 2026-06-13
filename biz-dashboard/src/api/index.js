@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api',
+    baseURL: '/api',
     timeout: 30000,
     headers: {
         'Content-Type': 'application/json'
@@ -31,7 +31,7 @@ export const getResults = (params) => api.get('/results', { params })
 
 export const getResultDetail = (id) => api.get(`/results/${id}`)
 
-export const getResultCurves = (id) => api.get(`/results/${id}/curves`)
+export const getResultCurves = (id, params) => api.get(`/results/${id}/curves`, { params })
 
 export const getResultSteps = (id) => api.get(`/results/${id}/steps`)
 

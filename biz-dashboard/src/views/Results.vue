@@ -77,28 +77,28 @@
             <div v-if="results.length === 0" class="empty-state">
               暂无数据
             </div>
-            
-            <!-- Pagination -->
-            <div class="pagination">
-              <AppButton 
-                variant="secondary" 
-                size="sm" 
-                :disabled="page <= 1"
-                @click="page--; loadResults()"
-              >
-                上一页
-              </AppButton>
-              <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
-              <AppButton 
-                variant="secondary" 
-                size="sm"
-                :disabled="page >= totalPages"
-                @click="page++; loadResults()"
-              >
-                下一页
-              </AppButton>
-            </div>
           </AppCard>
+        </div>
+
+        <!-- Pagination (Fixed at bottom) -->
+        <div class="pagination-bar">
+            <AppButton 
+              variant="secondary" 
+              size="sm" 
+              :disabled="page <= 1"
+              @click="page--; loadResults()"
+            >
+              上一页
+            </AppButton>
+            <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
+            <AppButton 
+              variant="secondary" 
+              size="sm"
+              :disabled="page >= totalPages"
+              @click="page++; loadResults()"
+            >
+              下一页
+            </AppButton>
         </div>
       </div>
     </div>
@@ -299,13 +299,14 @@ onMounted(loadResults)
   color: var(--text-secondary);
 }
 
-.pagination {
+.pagination-bar {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
   padding: var(--space-4);
   border-top: 1px solid var(--border-color);
+  background: var(--bg-panel);
 }
 
 .page-info {

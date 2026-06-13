@@ -228,7 +228,7 @@ const queryHistory = async () => {
     
     console.log('Querying history:', payload)
     
-    const response = await fetch('http://localhost:8000/api/proxy/timeseries/history', {
+    const response = await fetch('/api/proxy/timeseries/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

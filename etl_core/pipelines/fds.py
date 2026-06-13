@@ -3,6 +3,7 @@ import struct
 import base64
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from sqlalchemy import text
 from ..common.base import BaseEtlPipeline
@@ -93,10 +94,10 @@ class FdsPipeline(BaseEtlPipeline):
     def get_next_batch(self, last_autoindex, batch_size):
         with self.engine.connect() as conn:
             query = text("""
-                SELECT autoindex 
-                FROM origin.bs_fds_v_fds_curves
-                WHERE autoindex > :last_idx
-                ORDER BY autoindex
+                SELECT resultlistid 
+                FROM origin.bs_fds_curveresults
+                WHERE resultlistid > :last_idx
+                ORDER BY resultlistid
                 LIMIT :batch
             """)
             return [row[0] for row in conn.execute(query, {"last_idx": last_autoindex, "batch": batch_size}).fetchall()]
@@ -106,14 +107,14 @@ class FdsPipeline(BaseEtlPipeline):
             with engine.begin() as conn:
                 # 1. Fetch Main Record
                 query_main = text("""
-                    SELECT 
-                        autoindex, actualprogramid, systemid, startselection, ok_nok_code, 
-                        lastexecutedstep, starttime, cyclenumber, duration, bsn, progselection, curve 
-                    FROM origin.bs_fds_v_fds_curves 
+                    SELECT
+                        autoindex, actualprogramid, systemid, startselection, ok_nok_code,
+                        lastexecutedstep, starttime, cyclenumber, duration, bsn, progselection, curve
+                    FROM origin.bs_fds_v_fds_curves
                     WHERE autoindex = :idx
                 """)
                 record = conn.execute(query_main, {"idx": autoindex}).fetchone()
-                
+
                 if not record:
                     return False
 
@@ -352,5 +353,5 @@ class FdsPipeline(BaseEtlPipeline):
             return True
 
         except Exception as e:
-            print(f"[{self.name}] ❌ Error processing {autoindex}: {e}")
+            print(f"[{self.name}] Error processing {autoindex}: {e}")
             return False

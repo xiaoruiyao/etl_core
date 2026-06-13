@@ -27,31 +27,31 @@ def run_pipeline(pipeline_config):
     checkpoint_file = pipeline_config.get('checkpoint_file') 
     start_autoindex = pipeline_config.get('start_autoindex')
     
-    print(f"[Scheduler] 🚀 Starting {name} process...")
-    
+    print(f"[Scheduler] Starting {name} process...")
+
     try:
         # Dynamically import module and class
         module = importlib.import_module(module_name)
         PipelineClass = getattr(module, class_name)
-        
+
         # Instantiate
         # Note: We assume the pipeline class __init__ accepts checkpoint_file if provided
         if checkpoint_file:
             pipeline = PipelineClass(batch_size=batch_size, workers=workers, checkpoint_file=checkpoint_file)
         else:
              pipeline = PipelineClass(batch_size=batch_size, workers=workers)
-        
+
         # Run loop
         pipeline.run(resume=True, loop_interval=interval, start_autoindex=start_autoindex)
-        
+
     except Exception as e:
-        print(f"[Scheduler] 💥 {name} process crashed: {e}")
+        print(f"[Scheduler] {name} process crashed: {e}")
         time.sleep(10) # Prevent tight crash loop
 
 def main():
     print(f"[Scheduler] Loading configuration from {CONFIG_FILE}...")
     if not os.path.exists(CONFIG_FILE):
-        print(f"[Scheduler] ❌ Config file {CONFIG_FILE} not found!")
+        print(f"[Scheduler] Config file {CONFIG_FILE} not found!")
         return
 
     with open(CONFIG_FILE, 'r') as f:
@@ -72,9 +72,9 @@ def main():
             time.sleep(5)
             for p in processes:
                 if not p.is_alive():
-                    print(f"[Scheduler] ⚠️ Process {p.pid} died. (Restart logic could be implemented here)")
+                    print(f"[Scheduler] Process {p.pid} died.")
     except KeyboardInterrupt:
-        print("\n[Scheduler] 🛑 Stopping all processes...")
+        print("\n[Scheduler] Stopping all processes...")
         for p in processes:
             p.terminate()
             p.join()

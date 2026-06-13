@@ -239,7 +239,7 @@ const fetchUriValues = async () => {
     const uris = uriData.value.map(u => u.uri)
     
     // 使用后端代理调用外部 API（解决 CORS）
-    const response = await fetch('http://localhost:8000/api/proxy/timeseries', {
+    const response = await fetch('/api/proxy/timeseries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(uris)
@@ -255,6 +255,12 @@ const fetchUriValues = async () => {
         data.result.forEach((result, index) => {
           if (index < uriData.value.length) {
             const existing = uriData.value[index]
+            
+            // 安全检查：如果结果为空，跳过
+            if (!result) {
+              return
+            }
+
             // v 可能是字符串或数字，统一转换为字符串
             const rawValue = result.v !== null && result.v !== undefined ? String(result.v).trim() : null
             const newValue = rawValue

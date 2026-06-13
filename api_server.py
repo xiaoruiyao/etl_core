@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import json
 import asyncio
 import httpx
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 from contextlib import asynccontextmanager
 
 # --- Database Configuration ---
@@ -487,30 +487,62 @@ def get_result_steps(result_id: int):
 
 
 @app.get("/api/results/{result_id}/curves")
-def get_result_curves(result_id: int):
-    """获取结果的曲线数据"""
+def get_result_curves(
+    result_id: int,
+    step: int = Query(None),
+    curve_type: str = Query(None)
+):
+    """获取结果的曲线数据，支持 step/curve_type 过滤，附带关联告警"""
     with engine.connect() as conn:
-        query = text("""
+        conditions = ["c.result_id = :rid"]
+        params: dict = {"rid": result_id}
+        if step is not None:
+            conditions.append("c.step = :step")
+            params["step"] = step
+        if curve_type:
+            conditions.append("c.curve_type = :curve_type")
+            params["curve_type"] = curve_type
+        where_clause = " AND ".join(conditions)
+
+        query = text(f"""
             SELECT id, step, curve_type, start_time, end_time, data_points
-            FROM biz.curve
-            WHERE result_id = :rid
+            FROM biz.curve c
+            WHERE {where_clause}
             ORDER BY step, curve_type
         """)
-        rows = conn.execute(query, {"rid": result_id}).fetchall()
-        
+        rows = conn.execute(query, params).fetchall()
+
+        # 查询该结果关联的全部告警（含父级关联）
+        alarm_rows = conn.execute(text("""
+            SELECT id, alarm_code, alarm_level, alarm_msg, parent_alarm_id
+            FROM biz.alarm
+            WHERE result_id = :rid
+            ORDER BY id
+        """), {"rid": result_id}).fetchall()
+
+        alarms = [
+            {
+                "id": r[0],
+                "alarm_code": r[1],
+                "alarm_level": r[2],
+                "alarm_msg": r[3],
+                "parent_alarm_id": r[4]
+            }
+            for r in alarm_rows
+        ]
+
         items = []
         for row in rows:
-            item = {
+            items.append({
                 "id": row[0],
                 "step": row[1],
                 "curve_type": row[2],
                 "start_time": row[3].isoformat() if row[3] else None,
                 "end_time": row[4].isoformat() if row[4] else None,
                 "data_points": row[5] if row[5] else None
-            }
-            items.append(item)
-        
-        return items
+            })
+
+        return {"items": items, "total": len(items), "alarms": alarms}
 
 
 @app.get("/api/alarms")
@@ -720,39 +752,41 @@ def get_devices():
 
 @app.get("/api/devices/{device_name}")
 def get_device_detail(device_name: str):
-    """获取设备详情统计"""
+    """获取设备详情统计（单次查询）"""
     with engine.connect() as conn:
         query = text("""
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN result_status = 1 THEN 1 ELSE 0 END) as ok_count,
-                SUM(CASE WHEN result_status = 0 THEN 1 ELSE 0 END) as nok_count,
-                ROUND(100.0 * SUM(CASE WHEN result_status = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as ok_rate
-            FROM biz.result
-            WHERE device_name = :name
+            SELECT
+                r.total, r.ok_count, r.nok_count, r.ok_rate,
+                a.alarm_count,
+                u.uri_count
+            FROM (
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN result_status = 1 THEN 1 ELSE 0 END) as ok_count,
+                    SUM(CASE WHEN result_status = 0 THEN 1 ELSE 0 END) as nok_count,
+                    ROUND(100.0 * SUM(CASE WHEN result_status = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as ok_rate
+                FROM biz.result WHERE device_name = :name
+            ) r,
+            (
+                SELECT COUNT(a.id) as alarm_count
+                FROM biz.alarm a
+                LEFT JOIN biz.result r ON a.result_id = r.id
+                WHERE (a.device_id = :name OR (a.device_id IS NULL AND r.device_name = :name))
+            ) a,
+            (
+                SELECT COUNT(*) as uri_count FROM biz.device_uri WHERE device_id = :name
+            ) u
         """)
         row = conn.execute(query, {"name": device_name}).fetchone()
-        
-        alarm_query = text("""
-            SELECT COUNT(a.id)
-            FROM biz.alarm a
-            LEFT JOIN biz.result r ON a.result_id = r.id
-            WHERE COALESCE(a.device_id, r.device_name) = :name
-        """)
-        alarm_count = conn.execute(alarm_query, {"name": device_name}).scalar()
-        
-        # Get URI count
-        uri_query = text("SELECT COUNT(*) FROM biz.device_uri WHERE device_id = :name")
-        uri_count = conn.execute(uri_query, {"name": device_name}).scalar()
-        
+
         return {
             "device_name": device_name,
-            "total": row[0] if row else 0,
-            "ok_count": row[1] if row else 0,
-            "nok_count": row[2] if row else 0,
-            "ok_rate": float(row[3]) if row and row[3] else 0,
-            "alarm_count": alarm_count or 0,
-            "uri_count": uri_count or 0
+            "total": row[0] or 0,
+            "ok_count": row[1] or 0,
+            "nok_count": row[2] or 0,
+            "ok_rate": float(row[3]) if row[3] else 0,
+            "alarm_count": row[4] or 0,
+            "uri_count": row[5] or 0
         }
 
 
@@ -760,33 +794,22 @@ def get_device_detail(device_name: str):
 def get_device_results(
     device_name: str,
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    limit: int = None
+    page_size: int = Query(10, ge=1, le=100)
 ):
-    """获取设备的结果列表"""
+    """获取设备的结果列表（分页）"""
     with engine.connect() as conn:
         count_sql = text("SELECT COUNT(*) FROM biz.result WHERE device_name = :name")
         total = conn.execute(count_sql, {"name": device_name}).scalar()
-        
-        if limit:
-            query_sql = text("""
-                SELECT id, cyclenumber, craft_type, bsn, result_status, start_time, key_value
-                FROM biz.result
-                WHERE device_name = :name
-                ORDER BY start_time DESC
-                LIMIT :limit
-            """)
-            rows = conn.execute(query_sql, {"name": device_name, "limit": limit}).fetchall()
-        else:
-            offset = (page - 1) * page_size
-            query_sql = text("""
-                SELECT id, cyclenumber, craft_type, bsn, result_status, start_time, key_value
-                FROM biz.result
-                WHERE device_name = :name
-                ORDER BY start_time DESC
-                LIMIT :limit OFFSET :offset
-            """)
-            rows = conn.execute(query_sql, {"name": device_name, "limit": page_size, "offset": offset}).fetchall()
+
+        offset = (page - 1) * page_size
+        query_sql = text("""
+            SELECT id, cyclenumber, craft_type, bsn, result_status, start_time, key_value
+            FROM biz.result
+            WHERE device_name = :name
+            ORDER BY start_time DESC
+            LIMIT :limit OFFSET :offset
+        """)
+        rows = conn.execute(query_sql, {"name": device_name, "limit": page_size, "offset": offset}).fetchall()
         
         keys = ["id", "cyclenumber", "craft_type", "bsn", "result_status", "start_time", "key_value"]
         items = []
@@ -799,51 +822,44 @@ def get_device_results(
         return {"items": items, "total": total}
 
 
-        return {"items": items, "total": total}
-
-
 @app.get("/api/devices/{device_name}/alarms")
 def get_device_alarms(
     device_name: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    limit: int = None
+    has_parent: Optional[bool] = Query(None, description="true=仅父级关联告警, false=仅根告警, 不传=全部")
 ):
-    """获取设备的报警列表 (Hybrid: device_id OR result.device_name)"""
+    """获取设备的报警列表，支持 has_parent 筛选"""
     with engine.connect() as conn:
-        # Hybrid Filter: Matches alarm.device_id OR associated result's device_name
-        base_query = """
+        # 拆分 COALESCE 为 OR，使索引生效
+        base_where = "(a.device_id = :name OR (a.device_id IS NULL AND r.device_name = :name))"
+        if has_parent is True:
+            base_where += " AND a.parent_alarm_id IS NOT NULL"
+        elif has_parent is False:
+            base_where += " AND a.parent_alarm_id IS NULL"
+
+        base_query = f"""
             FROM biz.alarm a
             LEFT JOIN biz.result r ON a.result_id = r.id
-            WHERE COALESCE(a.device_id, r.device_name) = :name
+            WHERE {base_where}
         """
-        
+
         count_sql = text(f"SELECT COUNT(a.id) {base_query}")
         total = conn.execute(count_sql, {"name": device_name}).scalar()
         
-        select_fields = "a.id, a.result_id, a.alarm_code, a.alarm_level, a.alarm_msg, a.create_time, COALESCE(a.device_id, r.device_name) as device_id"
-        
-        if limit:
-            query_sql = text(f"""
-                SELECT {select_fields}
-                {base_query}
-                ORDER BY a.create_time DESC
-                LIMIT :limit
-            """)
-            params = {"name": device_name, "limit": limit}
-        else:
-            offset = (page - 1) * page_size
-            query_sql = text(f"""
-                SELECT {select_fields}
-                {base_query}
-                ORDER BY a.create_time DESC
-                LIMIT :limit OFFSET :offset
-            """)
-            params = {"name": device_name, "limit": page_size, "offset": offset}
+        select_fields = "a.id, a.result_id, a.alarm_code, a.alarm_level, a.alarm_msg, a.create_time, a.parent_alarm_id, COALESCE(a.device_id, r.device_name) as device_id"
+        offset = (page - 1) * page_size
+        query_sql = text(f"""
+            SELECT {select_fields}
+            {base_query}
+            ORDER BY a.create_time DESC
+            LIMIT :limit OFFSET :offset
+        """)
+        params = {"name": device_name, "limit": page_size, "offset": offset}
             
         rows = conn.execute(query_sql, params).fetchall()
         
-        keys = ["id", "result_id", "alarm_code", "alarm_level", "alarm_msg", "create_time", "device_id"]
+        keys = ["id", "result_id", "alarm_code", "alarm_level", "alarm_msg", "create_time", "parent_alarm_id", "device_id"]
         items = []
         for row in rows:
             item = row_to_dict(row, keys)

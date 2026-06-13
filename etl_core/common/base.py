@@ -24,10 +24,10 @@ class BaseEtlPipeline(abc.ABC):
             try:
                 with open(self.checkpoint_file, 'r') as f:
                     data = json.load(f)
-                    print(f"[{self.name}] 📌 Loaded Checkpoint: autoindex={data.get('last_autoindex')}, time={data.get('last_time')}")
+                    print(f"[{self.name}] Loaded Checkpoint: autoindex={data.get('last_autoindex')}, time={data.get('last_time')}")
                     return data
             except Exception as e:
-                print(f"[{self.name}] ⚠️ Failed to load checkpoint: {e}")
+                print(f"[{self.name}] Failed to load checkpoint: {e}")
         return {"last_autoindex": 0, "last_time": None, "success_count": 0, "fail_count": 0}
 
     def save_checkpoint(self, autoindex, success_count=0, fail_count=0):
@@ -40,7 +40,7 @@ class BaseEtlPipeline(abc.ABC):
         }
         with open(self.checkpoint_file, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"[{self.name}] 💾 Saved Checkpoint: autoindex={autoindex}")
+        print(f"[{self.name}] Saved Checkpoint: autoindex={autoindex}")
 
     @abc.abstractmethod
     def get_next_batch(self, last_autoindex, batch_size):
@@ -86,29 +86,29 @@ class BaseEtlPipeline(abc.ABC):
         failed = checkpoint.get("fail_count", 0) if resume else 0
         total_processed_session = 0
         
-        print(f"[{self.name}] 🚀 Starting Pipeline. Start Index: {last_autoindex}, Workers: {self.workers}, Loop: {loop_interval}s")
+        print(f"[{self.name}] Starting Pipeline. Start Index: {last_autoindex}, Workers: {self.workers}, Loop: {loop_interval}s")
 
         while not self.stop_event:
             # Check limit
             if self.limit and total_processed_session >= self.limit:
-                print(f"[{self.name}] 🛑 Reached session limit ({self.limit}). Stopping.")
+                print(f"[{self.name}] Reached session limit ({self.limit}). Stopping.")
                 break
 
             # 1. Get Batch
             try:
                 batch_ids = self.get_next_batch(last_autoindex, self.batch_size)
             except Exception as e:
-                 print(f"[{self.name}] 💥 Error fetching batch: {e}")
+                 print(f"[{self.name}] Error fetching batch: {e}")
                  time.sleep(5)
                  continue
 
             if not batch_ids:
                 if loop_interval:
-                    print(f"[{self.name}] 💤 No new data. Sleeping {loop_interval}s...")
+                    print(f"[{self.name}] No new data. Sleeping {loop_interval}s...")
                     time.sleep(loop_interval)
                     continue
                 else:
-                    print(f"[{self.name}] ✅ No more data. Finished.")
+                    print(f"[{self.name}] No more data. Finished.")
                     break
             
             # print(f"[{self.name}] 📥 Batch: {len(batch_ids)} items ({batch_ids[0]} -> {batch_ids[-1]})")
@@ -132,8 +132,12 @@ class BaseEtlPipeline(abc.ABC):
                             batch_success += 1
                         else:
                             batch_failed += 1
+                        
+                        total_completed = batch_success + batch_failed
+                        if total_completed % 100 == 0:
+                            print(f"[{self.name}] Progress: {total_completed} / {len(batch_ids)} items processed...", flush=True)
                     except Exception as exc:
-                        print(f"[{self.name}] 💥 Item {idx} execution failed: {exc}")
+                        print(f"[{self.name}] Item {idx} execution failed: {exc}")
                         batch_failed += 1
                     
                     if offset_val > max_id_in_batch:
@@ -151,5 +155,5 @@ class BaseEtlPipeline(abc.ABC):
             
             # 4. Save Checkpoint
             self.save_checkpoint(last_autoindex, success, failed)
-            print(f"[{self.name}] ⏱️ Batch Done. Time: {duration:.2f}s, Speed: {speed:.1f} rec/s. Total Success: {success}")
+            print(f"[{self.name}] Batch Done. Time: {duration:.2f}s, Speed: {speed:.1f} rec/s. Total Success: {success}")
 

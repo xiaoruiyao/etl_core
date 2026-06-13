@@ -13,6 +13,12 @@ venv.bak/
 # VS Code
 .vscode/
 
+# JetBrains IDE
+.idea/
+
+# Claude Code
+.claude/
+
 # Node
 node_modules/
 dist/
